@@ -1,0 +1,93 @@
+name: PR
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '*' ]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Run lints
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Install Rust Stable
+      uses: dtolnay/rust-toolchain@stable
+      with:
+          components: rustfmt, clippy
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 
+    - name: Format
+      run: cargo fmt --all -- --check
+    - name: clippy
+      run: cargo clippy --all -- -D warnings
+    - name: Changelog
+      uses: dangoslen/changelog-enforcer@v3
+      with:
+        skipLabels: pipelines,coverage
+
+  test-std:
+    name: Run tests with stdlib feature
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Install Rust Stable
+      uses: dtolnay/rust-toolchain@stable
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@cargo-llvm-cov
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+    - name: Run tests
+      run: cargo llvm-cov run --all --all-features --output lcov.info
+    - name: Upload coverage to codecov.io
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: lcov.info
+        fail_ci_if_error: true
+    # NOTE: the following step is needed so caching doesn't cause misleading coverage in later runs
+    - name: Clean coverage artifacts
+      run: cargo llvm-cov clean
+
+  test-nostd:
+    name: Run tests without stdlib feature
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Install Rust Stable
+      uses: dtolnay/rust-toolchain@stable
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+    - name: Run tests no_std
+      run: cargo t --all --no-default-features
+
+  test-wasm32:
+    name: Run tests for wasm32 build
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Install Rust Stable
+      uses: dtolnay/rust-toolchain@stable
+    - name: Install wasm-bindgen-cli
+      uses: jetli/wasm-pack-action@v0.4.0
+      with:
+        version: "v0.10.3"
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+    - name: Run wasm tests
+      run: wasm-pack test --node --no-default-features
