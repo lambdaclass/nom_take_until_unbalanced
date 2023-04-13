@@ -47,7 +47,7 @@ jobs:
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
     - name: Run tests
-      run: cargo llvm-cov run --all-features --output-path lcov.info --lcov
+      run: cargo llvm-cov test --all-features --output-path lcov.info --lcov
     - name: Upload coverage to codecov.io
       uses: codecov/codecov-action@v3
       with:
