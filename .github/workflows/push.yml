@@ -32,62 +32,40 @@ jobs:
       with:
         skipLabels: pipelines,coverage
 
-  test-std:
-    name: Run tests with stdlib feature
+  test:
+    strategy:
+      matrix:
+        build-type: ['std', 'no_std', 'wasm32']
+    name: Run tests
     runs-on: ubuntu-22.04
     steps:
     - name: Install Rust Stable
       uses: dtolnay/rust-toolchain@stable
-    - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@cargo-llvm-cov
+    - name: Install test dependencies
+      uses: taiki-e/install-action@v2
+      with:
+        tools: cargo-llvm-cov,wasm-pack
     - name: Checkout
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 0 
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
     - name: Run tests
-      run: cargo llvm-cov test --all-features --output-path lcov.info --lcov
+      run: |
+        case ${{ matrix.build-type }} in
+        'std')
+          cargo llvm-cov test --all-features --output-path lcov.info --lcov
+          ;;
+        'no_std')
+          cargo t --all --no-default-features
+          ;;
+        'wasm32')
+          wasm-pack test --node --no-default-features
+          ;;
+        esac
     - name: Upload coverage to codecov.io
+      if: matrix.build-type == 'std'
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: lcov.info
         fail_ci_if_error: true
-    # NOTE: the following step is needed so caching doesn't cause misleading coverage in later runs
-    - name: Clean coverage artifacts
-      run: cargo llvm-cov clean
-
-  test-nostd:
-    name: Run tests without stdlib feature
-    runs-on: ubuntu-22.04
-    steps:
-    - name: Install Rust Stable
-      uses: dtolnay/rust-toolchain@stable
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0 
-    - name: Set up cargo cache
-      uses: Swatinem/rust-cache@v2
-    - name: Run tests no_std
-      run: cargo t --all --no-default-features
-
-  test-wasm32:
-    name: Run tests for wasm32 build
-    runs-on: ubuntu-22.04
-    steps:
-    - name: Install Rust Stable
-      uses: dtolnay/rust-toolchain@stable
-    - name: Install wasm-bindgen-cli
-      uses: jetli/wasm-pack-action@v0.4.0
-      with:
-        version: "v0.10.3"
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0 
-    - name: Set up cargo cache
-      uses: Swatinem/rust-cache@v2
-    - name: Run wasm tests
-      run: wasm-pack test --node --no-default-features
