@@ -15,18 +15,17 @@ jobs:
     name: Run lints
     runs-on: ubuntu-22.04
     steps:
+    - uses: actions/checkout@v3
     - name: Install Rust Stable
       uses: dtolnay/rust-toolchain@stable
       with:
           components: rustfmt, clippy
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0 
     - name: Format
       run: cargo fmt --all -- --check
-    - name: clippy
+    - name: Clippy
       run: cargo clippy --all -- -D warnings
+    - name: Conventional Commits
+      uses: webiny/action-conventional-commits@v1.1.0
     - name: Changelog
       uses: dangoslen/changelog-enforcer@v3
       with:
